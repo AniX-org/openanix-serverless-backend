@@ -37,7 +37,7 @@ Available modules:
     deno install
     ```
 
-3. If needed modify the config and hooks (same as in docker from step 6)
+3. If needed modify the config and hooks
 
 4. Deploy
 
