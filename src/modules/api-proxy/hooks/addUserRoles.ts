@@ -11,7 +11,7 @@ function match(url: URL, method: "GET" | "POST"): boolean {
 async function hook(data: any, _: URL, __: "GET" | "POST") {
   // проверяем что есть поле 'profile' и к ID профиля привязаны роли
   // иначе возвращаем оригинальные данные
-  if (!data.hasOwnProperty("profile")) return data;
+  if (!data.hasOwnProperty("profile") || !data.profile) return data;
   if (!Roles.user_roles.hasOwnProperty(data.profile.id)) return data;
 
   // ищём и добавляем роли

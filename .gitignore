@@ -14,7 +14,7 @@ dist/
 
 # deps
 node_modules/
-.lock
+*.lock
 package-lock.json
 
 # env
