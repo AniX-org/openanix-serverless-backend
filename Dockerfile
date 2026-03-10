@@ -4,7 +4,7 @@ LABEL org.opencontainers.image.source=https://github.com/AniX-org/openanix-serve
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json ./
 RUN npm ci --omit=dev
 
 ADD src ./src
