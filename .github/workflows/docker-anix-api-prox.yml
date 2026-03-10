@@ -1,0 +1,31 @@
+name: Build and Publish 'openanix-serverless-backend' to Docker Hub
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "Dockerfile"
+      - "node.ts"
+      - "src/**/*.ts"
+      - "src/**/*.json"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Dynamically set 'tag' environment variable
+        run: |
+            echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      - name: Build Image
+        run: |
+          docker build . -t radiquum/openanix-serverless-backend:latest
+          docker tag radiquum/openanix-serverless-backend:latest radiquum/openanix-serverless-backend:${{ env.SHORT_SHA }}
+      - name: Publish Image
+        run: |
+          docker login -u radiquum -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker push radiquum/openanix-serverless-backend:${{ env.SHORT_SHA }}
+          docker push radiquum/openanix-serverless-backend:latest
