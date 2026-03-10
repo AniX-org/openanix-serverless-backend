@@ -4,8 +4,9 @@ LABEL org.opencontainers.image.source=https://github.com/AniX-org/openanix-serve
 
 WORKDIR /app
 
+ENV NODE_ENV=production
 COPY package.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 ADD src ./src
 COPY node.ts ./
