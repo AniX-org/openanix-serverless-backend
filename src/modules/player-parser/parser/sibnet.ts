@@ -1,27 +1,35 @@
+import { constructMessage } from "../../../shared/Message";
 import { randomUA } from "../UserAgent";
 
-export async function parseSibnet(url: string) {
-  let userAgent = randomUA();
+const _PLAYER = "sibnet";
+
+export interface SibnetLinkResponse {
+  manifest: string;
+  poster: string | null;
+}
+
+export async function parseSibnet(
+  url: string | null,
+): Promise<string | SibnetLinkResponse> {
+  if (!url) {
+    return constructMessage(_PLAYER, "URL is REQUIRED", "()");
+  }
+
+  const __USER_AGENT = randomUA();
   let pageRes = await fetch(url, {
     headers: {
-      "User-Agent": userAgent,
+      "User-Agent": __USER_AGENT,
     },
   });
   if (!pageRes.ok) {
-    return {
-      success: false,
-      message: "[SIBNET] Failed to fetch player page",
-    };
+    return constructMessage(_PLAYER, "Failed to fetch player page", "()");
   }
 
   const pageData = await pageRes.text();
   const videoRe = /\/v\/.*?\.mp4/;
   const videoMatch = videoRe.exec(pageData);
   if (!videoMatch || videoMatch.length == 0) {
-    return {
-      success: false,
-      message: "[SIBNET] Failed to parse player page",
-    };
+    return constructMessage(_PLAYER, "Failed to get link request parameters from player page", "()");
   }
 
   const posterRe = /\/upload\/cover\/.*?\.jpg/;
@@ -31,7 +39,7 @@ export async function parseSibnet(url: string) {
     `https://video.sibnet.ru${videoMatch[0]}`,
     {
       headers: {
-        "User-Agent": userAgent,
+        "User-Agent": __USER_AGENT,
         Referer: url,
       },
       redirect: "manual",
@@ -39,10 +47,7 @@ export async function parseSibnet(url: string) {
   );
 
   if (!actualVideoRes.headers.get("location")) {
-    return {
-      success: false,
-      message: "[SIBNET] no `location` header present in response",
-    };
+    return constructMessage(_PLAYER, "Failed to get `location` header", "()");
   }
 
   const video = `https:${actualVideoRes.headers.get("location")}`;
@@ -53,8 +58,7 @@ export async function parseSibnet(url: string) {
       : null
     : null;
 
-  return {
-    success: true,
+  return <SibnetLinkResponse> {
     manifest: video,
     poster: poster,
   };

@@ -1,27 +1,65 @@
+import { constructMessage } from "../../../shared/Message";
 import { randomUA } from "../UserAgent";
 
-export async function parseKodik(url: string) {
-  let userAgent = randomUA();
-  let pageRes = await fetch(url, {
-    headers: {
-      "User-Agent": userAgent,
-    },
-  });
-  if (!pageRes.ok) {
-    return {
-      success: false,
-      message: "[KODIK] Failed to fetch player page",
-    }
+const _PLAYER = "kodik";
+
+interface KodikLinkType {
+  src: string;
+  type: string;
+}
+
+export interface KodikLinkResponse {
+  default: number;
+  links: {
+    240: [KodikLinkType];
+    360: [KodikLinkType];
+    480: [KodikLinkType];
+    720: [KodikLinkType];
+    1080: [KodikLinkType];
+  };
+  manifest: string;
+  poster: string;
+}
+
+async function _getBody(
+  response: Response,
+  expectedBody: "text" | "json",
+): Promise<string | unknown | null> {
+  if (response.ok)
+    return expectedBody == "text" ?
+        await response.text()
+      : await response.json();
+  return null;
+}
+
+export async function parseKodik(
+  url: string | null,
+): Promise<string | KodikLinkResponse> {
+  if (!url) {
+    return constructMessage(_PLAYER, "URL is REQUIRED", "()");
   }
 
-  const pageData = await pageRes.text();
-  const urlParamsRe = /var urlParams = .*;$/m;
-  const urlParamsMatch = urlParamsRe.exec(pageData);
+  const __USER_AGENT = randomUA();
+  let __tmp_resp: Response | null = null;
+  let __tmp_resp_body: any = null;
+  __tmp_resp = await fetch(url, {
+    headers: {
+      "User-Agent": __USER_AGENT,
+    },
+  });
+  __tmp_resp_body = await _getBody(__tmp_resp, "text");
+  if (!__tmp_resp_body) {
+    return constructMessage(_PLAYER, "Failed to fetch player page", "()");
+  }
+
+  const urlParamsRegex = /var urlParams = .*;$/m;
+  const urlParamsMatch = urlParamsRegex.exec(__tmp_resp_body);
   if (!urlParamsMatch || urlParamsMatch.length == 0) {
-    return {
-      success: false,
-      message: "[KODIK] Failed to parse parameters from player page",
-    }
+    return constructMessage(
+      _PLAYER,
+      "Failed to get link request parameters from player page",
+      "()",
+    );
   }
   const urlParamsStr = urlParamsMatch[0]
     .replace("var urlParams = '", "")
@@ -29,74 +67,61 @@ export async function parseKodik(url: string) {
 
   const origDomain = url.replace("https://", "").split("/")[0];
   const urlStr = url.replace(`https://${origDomain}/`, "");
-  const type = urlStr.split("/")[0];
-  const id = urlStr.split("/")[1];
-  const hash = urlStr.split("/")[2];
   const urlParams = JSON.parse(urlParamsStr);
-  urlParams["type"] = type;
-  urlParams["id"] = id;
-  urlParams["hash"] = hash;
+  urlParams["type"] = urlStr.split("/")[0];
+  urlParams["id"] = urlStr.split("/")[1];
+  urlParams["hash"] = urlStr.split("/")[2];
 
   const formData = new FormData();
   for (const [key, value] of Object.entries(urlParams)) {
     formData.append(key, value as any);
   }
-  const linksRes = await fetch(`https://${origDomain}/ftor`, {
+
+  __tmp_resp = await fetch(`https://${origDomain}/ftor`, {
     method: "POST",
     body: formData,
     headers: {
-      "User-Agent": userAgent,
+      "User-Agent": __USER_AGENT,
       referrer: "",
       referrerPolicy: "no-referrer",
     },
   });
-  if (!linksRes.ok) {
-    return {
-      success: false,
-      message: "[KODIK] Returned an error or empty response from links endpoint",
-    }
+  __tmp_resp_body = await _getBody(__tmp_resp, "json");
+  if (!__tmp_resp_body) {
+    return constructMessage(
+      _PLAYER,
+      "Returned an error or empty response from links endpoint",
+      "()",
+    );
   }
 
-  let data = await linksRes.json();
-  if (isEncrypted(data)) {
-    for (const [key] of Object.entries(data.links)) {
-      data.links[key][0].src = decryptSrc(data.links[key][0].src);
-    }
-  }
-  if (!hasProto(data)) {
-    for (const [key] of Object.entries(data.links)) {
-      data.links[key][0].src = addProto(data.links[key][0].src);
-    }
-  }
-
-  return {
-    success: true,
-    default: data.default,
-    links: data.links,
-    manifest: createManifest(data),
-    poster: createPoster(data)
+  _parseLinks(__tmp_resp_body);
+  return <KodikLinkResponse>{
+    default: __tmp_resp_body.default,
+    links: __tmp_resp_body.links,
+    manifest: createManifest(__tmp_resp_body),
+    poster: createPoster(__tmp_resp_body),
   };
 }
 
-function isEncrypted(data: any) {
-  return !data.links[data.default][0].src.includes("//");
+function _parseLinks(data: any) {
+  for (const [key] of Object.entries(data.links)) {
+    if (!data.links[key][0].src.includes("//")) {
+      data.links[key][0].src = _decrypt(data.links[key][0].src);
+    }
+    if (!data.links[key][0].src.startsWith("http")) {
+      data.links[key][0].src = `https:${data.links[key][0].src}`;
+    }
+  }
 }
 
-function decryptSrc(enc: string) {
+function _decrypt(enc: string) {
   const decryptedBase64 = enc.replace(/[a-zA-Z]/g, (e: any) => {
     return String.fromCharCode(
       (e <= "Z" ? 90 : 122) >= (e = e.charCodeAt(0) + 18) ? e : e - 26,
     );
   });
   return atob(decryptedBase64);
-}
-
-function hasProto(data: any) {
-  return data.links[data.default][0].src.startsWith("http");
-}
-
-function addProto(string: string) {
-  return `https:${string}`;
 }
 
 function isAnimeTvSeries(data: any) {
@@ -107,12 +132,11 @@ function isAnimeTvSeries(data: any) {
 }
 
 function createManifest(data: any) {
-
   if (!isAnimeTvSeries(data)) {
     return data.links[data.default][0].src.replace(
-        `${data.default}.mp4:hls:`,
-        ""
-      );
+      `${data.default}.mp4:hls:`,
+      "",
+    );
   }
 
   const resolutions = {
@@ -127,6 +151,7 @@ function createManifest(data: any) {
 
   stringBuilder.push("#EXTM3U");
   for (const [key] of Object.entries(data.links)) {
+    //@ts-ignore
     stringBuilder.push(`#EXT-X-STREAM-INF:RESOLUTION=${resolutions[key]}`);
     stringBuilder.push(data.links[key][0].src);
   }
@@ -137,6 +162,6 @@ function createManifest(data: any) {
 function createPoster(data: any) {
   return data.links[data.default][0].src.replace(
     `${data.default}.mp4:hls:manifest.m3u8`,
-    "thumb001.jpg"
+    "thumb001.jpg",
   );
 }

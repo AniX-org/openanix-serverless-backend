@@ -1,26 +1,60 @@
-import { Hono } from "hono"
-import { parsePlayer } from "./service"
-const allowedPlayers = ["kodik", "libria", "sibnet", "mailru"]
+import { Hono } from "hono";
+import { parsePlayer } from "./service";
+import { constructMessage } from "../../shared/Message";
+import { ErrorResponse } from "../../shared/Responses";
+const allowedPlayers = ["kodik", "libria", "sibnet"];
 
-export const playerParseRoutes = new Hono()
+export const playerParseRoutes = new Hono();
+const _MODULE_PREFIX = "/player/";
+const _MODULE_TITLE = "PLAYER-PARSER";
 
 playerParseRoutes.get("/", async (c) => {
-  const url = new URL(c.req.url)
-  url.pathname = url.pathname.replace("/player/", "")
+  const url = new URL(c.req.url);
+  url.pathname = url.pathname.replace(_MODULE_PREFIX, "");
 
-  const playerUrl = url.searchParams.get("url")
+  const playerUrl = url.searchParams.get("url");
   if (!playerUrl) {
-    return c.json({"code": 400, "message": "no 'url' query provided"}, 400)
+    return c.json(<ErrorResponse>{
+      code: 400,
+      message: constructMessage(_MODULE_TITLE, `'url' query is not provided`),
+    });
   }
 
-  const playerType = url.searchParams.get("player")
-  if (!playerType || !allowedPlayers.includes(playerType)) {
-    return c.json({"code": 400, "message": `no or invalid 'player' query provided. should be one of: ${allowedPlayers.join(', ')}`}, 400)
+  const playerType = url.searchParams.get("player");
+  if (!playerType) {
+    return c.json(<ErrorResponse>{
+      code: 400,
+      message: constructMessage(
+        _MODULE_TITLE,
+        `'player' query is not provided`,
+      ),
+    });
+  }
+  if (!allowedPlayers.includes(playerType)) {
+    return c.json(<ErrorResponse>{
+      code: 400,
+      message: constructMessage(
+        _MODULE_TITLE,
+        `player type '${playerType}' is not supported. Supported types: ${allowedPlayers.join(", ")}`,
+      ),
+    });
   }
 
-  const result = await parsePlayer(playerUrl, playerType as "libria" | "kodik" | "sibnet" | "mailru")
-  if (!result || !result.success) {
-    return c.json({"code": 500, "message": result?.message || "failed to parse player"}, 500)
+  const result = await parsePlayer(
+    playerUrl,
+    playerType as "libria" | "kodik" | "sibnet",
+    url.searchParams
+  );
+  if (typeof result === "string") {
+    return c.json(<ErrorResponse>{
+      code: 500,
+      message: constructMessage(_MODULE_TITLE, result),
+    });
   }
-  return c.json(result)
-})
+
+  // @ts-ignore
+  return c.json({
+    code: 0,
+    ...result,
+  });
+});

@@ -1,77 +1,85 @@
+import { constructMessage } from "../../../shared/Message";
+
 const ANILIBRIA_API_ENDPOINT = "https://anilibria.top";
 
-export async function parseLibria(url: string) {
-  const decodedUrl = new URL(url);
+const _PLAYER = "libria";
 
-  const releaseId = decodedUrl.searchParams.get("id") || null;
-  const releaseEp = decodedUrl.searchParams.get("ep") || null;
+export interface LibriaLinkResponse {
+  default: number;
+  episode: any;
+  manifest: string;
+  poster: string;
+}
+
+const _RESOLUTIONS = {
+  hls_360: "578x360",
+  hls_480: "854x480",
+  hls_720: "1280x720",
+  hls_1080: "1920x1080",
+};
+
+export async function parseLibria(
+  url: string | null,
+  params: URLSearchParams,
+): Promise<LibriaLinkResponse | string> {
+  let decodedUrl: URL | null = null;
+  if (url) decodedUrl = new URL(url);
+
+  const releaseId =
+    decodedUrl?.searchParams.get("id") || params.get("id") || null;
+  const releaseEp =
+    decodedUrl?.searchParams.get("ep") || params.get("ep") || null;
 
   if (!releaseId || !releaseEp) {
-    return {
-      success: false,
-      message: "[LIBRIA] No release id or episode number was provided",
-    };
+    return constructMessage(
+      _PLAYER,
+      "No release id or episode number was provided",
+      "()",
+    );
   }
 
-  let apiRes = await fetch(
+  const __response = await fetch(
     `${ANILIBRIA_API_ENDPOINT}/api/v1/anime/releases/${releaseId}`,
   );
-  if (!apiRes.ok) {
-    if (apiRes.status == 404) {
-      return {
-        success: false,
-        message: "[LIBRIA] Release not found",
-      };
-    }
 
-    return {
-      success: false,
-      message: "[LIBRIA] Failed to get API response",
-    };
-  }
-
-  const data = await apiRes.json();
+  const data: any = await __response.json();
   if (!data) {
-    return {
-      success: false,
-      message: "[LIBRIA] No data returned",
-    };
+    return constructMessage(_PLAYER, "No data returned from API", "()");
   }
 
-  return {
-    success: true,
-    posters: data.poster,
-    episodes: data.episodes,
-    manifest: createManifest(data),
-    poster: getPoster(data, Number(releaseEp)),
+  const episode = data.episodes.find(
+    (item: any) => item.ordinal == Number(releaseEp),
+  );
+
+  for (const [key] of Object.entries(_RESOLUTIONS)) {
+    if (!episode[key]) continue;
+    const url = new URL(episode[key]);
+    url.search = "";
+    episode[key] = url.toString();
+  }
+
+  return <LibriaLinkResponse>{
+    default: 480,
+    episode: episode,
+    manifest: createManifest(episode),
+    poster: getPoster(data, episode),
   };
 }
 
-function createManifest(data: any) {
-  const episode = data.episodes[0];
-  const resolutions = {
-    hls_480: "854x480",
-    hls_720: "1280x720",
-    hls_1080: "1920x1080",
-  };
-
+function createManifest(episode: any) {
   const stringBuilder: string[] = [];
 
   stringBuilder.push("#EXTM3U");
-  for (const [key, value] of Object.entries(resolutions)) {
+  for (const [key, value] of Object.entries(_RESOLUTIONS)) {
     if (!episode[key]) continue;
     stringBuilder.push(`#EXT-X-STREAM-INF:RESOLUTION=${value}`);
-    const url = new URL(episode[key]);
-    url.search = "";
-    stringBuilder.push(url.toString());
+    stringBuilder.push(episode[key]);
   }
 
   return stringBuilder.join("\n");
 }
 
-function getPoster(data: any, episodeId: number) {
-  const episode = data.episodes.find((item: any) => item.ordinal == episodeId);
-
+function getPoster(data: any, episode: any) {
   if (episode.preview && episode.preview.preview)
     return `${ANILIBRIA_API_ENDPOINT}${episode.preview.preview}`;
   return `${ANILIBRIA_API_ENDPOINT}${data.posters.preview}`;

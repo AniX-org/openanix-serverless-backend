@@ -1,3 +1,3 @@
-export function constructMessage(module: string, message: string) {
-  return `[${module}] ${message}`;
+export function constructMessage(module: string, message: string, brakets: "[]" | "()" | "  " = "[]") {
+  return `${brakets[0]}${module}${brakets[1]} ${message}`;
 }
