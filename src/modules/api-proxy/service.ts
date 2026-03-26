@@ -5,10 +5,10 @@ export const ANIXART_UA =
 
 export async function proxyRequest(
   url: URL,
-  method: "GET" | "POST" = "GET",
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" = "GET",
   headers: Record<string, string> = {},
   body?: any,
-): Promise<Response> {
+): Promise<Response | string> {
   const currentBaseURL = new URL(ANIXART_API_ENDPOINT);
   url.protocol = currentBaseURL.protocol;
   url.host = currentBaseURL.host;
@@ -17,26 +17,35 @@ export async function proxyRequest(
   let requestHeaders = new Headers();
   requestHeaders.set("User-Agent", ANIXART_UA);
   requestHeaders.set("Connection", "keep-alive");
-  headers["content-type"] ? requestHeaders.set("content-type", headers["content-type"]) : requestHeaders.set("content-type", "application/json; charset=utf-8");
-  headers["content-length"] ? requestHeaders.set("content-length", headers["content-length"]) : null;
-  headers["api-version"] ? requestHeaders.set("api-version", headers["api-version"]) : null;
+  headers["content-type"] ?
+    requestHeaders.set("content-type", headers["content-type"])
+  : requestHeaders.set("content-type", "application/json; charset=utf-8");
+  headers["content-length"] ?
+    requestHeaders.set("content-length", headers["content-length"])
+  : null;
+  headers["api-version"] ?
+    requestHeaders.set("api-version", headers["api-version"])
+  : null;
   headers["sign"] ? requestHeaders.set("sign", headers["sign"]) : null;
 
-  if (method === "POST") {
-    return await fetch(url, {
-          method: "POST",
-          headers: requestHeaders,
-          body: body,
-          duplex: "half",
-        });
+  switch (method) {
+    case "POST":
+      return await fetch(url, {
+        method: "POST",
+        headers: requestHeaders,
+        body: body,
+        duplex: "half",
+      });
+    case "GET":
+      return await fetch(url, {
+        method: "GET",
+        headers: requestHeaders,
+      });
+    case "PUT":
+    case "DELETE":
+    case "PATCH":
+      return `Method ${method} is not supported`;
+    default:
+      return `Internal Server Error: default case should be UNREACHABLE`;
   }
-
-  if (method === "GET") {
-    return await fetch(url, {
-          method: "GET",
-          headers: requestHeaders,
-        });
-  }
-
-  throw new Error(`Method '${method}' is not implemented.`);
 }
