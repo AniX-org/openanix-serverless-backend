@@ -42,6 +42,17 @@ export async function parseLibria(
     `${ANILIBRIA_API_ENDPOINT}/api/v1/anime/releases/${releaseId}`,
   );
 
+  if (!__response.ok) {
+    if (__response.status == 404) {
+      return constructMessage(
+        _PLAYER,
+        "Release not found, maybe it was deleted",
+        "()",
+      );
+    }
+    return constructMessage(_PLAYER, "Failed to get API response", "()");
+  }
+
   const data: any = await __response.json();
   if (!data) {
     return constructMessage(_PLAYER, "No data returned from API", "()");
