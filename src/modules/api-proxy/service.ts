@@ -23,20 +23,19 @@ export async function proxyRequest(
   headers["sign"] ? requestHeaders.set("sign", headers["sign"]) : null;
 
   if (method === "POST") {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: requestHeaders,
-      body: body,
-    });
-    return res;
+    return await fetch(url, {
+          method: "POST",
+          headers: requestHeaders,
+          body: body,
+          duplex: "half",
+        });
   }
 
   if (method === "GET") {
-    const res = await fetch(url, {
-      method: "GET",
-      headers: requestHeaders,
-    });
-    return res;
+    return await fetch(url, {
+          method: "GET",
+          headers: requestHeaders,
+        });
   }
 
   throw new Error(`Method '${method}' is not implemented.`);
