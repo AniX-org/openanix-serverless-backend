@@ -12,6 +12,7 @@ Available modules:
 
 - [api-proxy](./src/modules/api-proxy/README.md)
 - [player-parser](./src/modules/player-parser/README.md)
+- [health-check](./src/modules/health/README.md)
 
 ## Deployment
 

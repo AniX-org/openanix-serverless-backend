@@ -1,4 +1,4 @@
-const ANIXART_API_ENDPOINT = "https://api-s.anixsekai.com";
+export const ANIXART_API_ENDPOINT = "https://api-s.anixsekai.com";
 
 export const ANIXART_UA =
   "AnixartApp/9.0 BETA 9-25110702 (Android 9; SDK 28; arm64-v8a; samsung SM-G975N; en)";

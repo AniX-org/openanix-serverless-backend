@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 
 import { apiProxyRoutes } from './modules/api-proxy/routes';
 import { playerParseRoutes } from './modules/player-parser/routes';
+import { healthRoutes } from './modules/health/routes';
 
 const app = new Hono()
 app.use('/*', cors({
@@ -15,5 +16,6 @@ app.use('/*', cors({
 
 app.route("/api/", apiProxyRoutes)
 app.route("/player/", playerParseRoutes)
+app.route("/health/", healthRoutes)
 
 export default app
